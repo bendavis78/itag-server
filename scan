@@ -1,0 +1,42 @@
+#!/usr/bin/env node
+'use strict'
+const noble = require('noble');
+const fs = require('fs');
+const yaml = require('js-yaml');
+
+const actions = yaml.safeLoad(fs.readFileSync('actions.yaml', 'utf8'));
+
+console.log('Scanning...');
+
+let foundDevices = 0;
+
+noble.on('stateChange', state => {
+  if (state === 'poweredOn') {
+    noble.startScanning(['1802'], false);
+  } else {
+    noble.stopScanning();
+  }
+});
+
+
+function finish() {
+  console.log(`Found ${foundDevices} new devices.`);
+  noble.stopScanning();
+  process.exit(0);
+}
+
+// set initial timeout to 3 seconds
+let timeout = setTimeout(finish, 3000);
+
+noble.on('discover', peripheral => {
+  if (actions[peripheral.id] || peripheral.advertisement.localName !== 'ITAG') {
+    return;
+  }
+  console.log(`Found ${peripheral.advertisement.localName}: ${peripheral.id}`);
+  foundDevices++;
+  // allow one second between each discovery
+  clearTimeout(timeout);
+  timeout = setTimeout(finish, 1000);
+});
+
+// vim: ft=javascript
